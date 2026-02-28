@@ -1,0 +1,12 @@
+name = "lead-backend"
+main = "src/index.ts"
+compatibility_date = "2026-02-24"
+
+[[queues.producers]]
+queue = "lead-queue"
+binding = "LEAD_QUEUE"
+
+[[queues.consumers]]
+queue = "lead-queue"
+max_batch_size = 100
+max_batch_timeout = 5
