@@ -4,9 +4,9 @@ compatibility_date = "2026-03-01"
 
 # Routes는 실제 운영에 맞게 1개만 확정하세요.
 # api.songssam.one 을 Worker에 연결할 거면 아래처럼.
-routes = [
-  { pattern = "api.songssam.one/*", zone_name = "songssam.one" }
-]
+# routes = [
+#  { pattern = "api.songssam.one/*", zone_name = "songssam.one" }
+# ]
 
 [[queues.producers]]
 queue = "lead-queue-v2"
