@@ -12,11 +12,6 @@ compatibility_date = "2026-03-01"
 queue = "lead-queue-v2"
 binding = "LEAD_QUEUE-V2"
 
-[[queues.consumers]]
-queue = "lead-queue-v2"
-max_batch_size = 100
-max_batch_timeout = 5
-
 [vars]
 GOOGLE_SHEETS_SHEET_NAME = "leads"
 CRM_RAW_SHEET_NAME = "songssamone_raw"
