@@ -37,9 +37,11 @@ function TriToggle({
 export default function CheckPage() {
   const { token = "" } = useParams();
 
-  const [pin, setPin] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [needsNewPin, setNeedsNewPin] = useState(false);
+  const [pin, setPin] = useState("");           // 일반 로그인 PIN
+  const [showFirstJoin, setShowFirstJoin] = useState(false);
+
+  const [initialPin, setInitialPin] = useState(""); // 가입용 PIN(초기 PIN)
+  const [setPinValue, setSetPinValue] = useState(""); // 바꿀 PIN(새 PIN)
 
   const [loading, setLoading] = useState(false);
   const [recommenderName, setRecommenderName] = useState("");
@@ -62,20 +64,17 @@ export default function CheckPage() {
   }
 
 useEffect(() => {
-  // URL token이 바뀌면, 기존 저장 토큰이 다른 추천인 토큰일 수 있으니 제거
+  // URL token 바뀌면 저장 토큰 검사 후 불일치 시 제거
   const t = localStorage.getItem("crm_token");
   if (t) {
     try {
       const payloadPart = t.split(".")[1];
       if (!payloadPart) throw new Error("bad_jwt");
-
       const b64 =
         payloadPart.replace(/-/g, "+").replace(/_/g, "/") +
         "===".slice((payloadPart.length + 3) % 4);
-
       const payload = JSON.parse(atob(b64));
       const savedToken = String(payload?.token || "");
-
       if (savedToken && token && savedToken !== token) {
         localStorage.removeItem("crm_token");
       }
@@ -84,36 +83,64 @@ useEffect(() => {
     }
   }
 
-  loadAll().catch(() => {
-    // 자동 로그인 실패 시 로그인 화면으로 남기기
+  // 토큰이 남아 있을 때만 자동 로딩
+  if (localStorage.getItem("crm_token")) {
+    loadAll().catch(() => setRecommenderName(""));
+  } else {
     setRecommenderName("");
-  });
+  }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [token]);
 
   const changedCount = useMemo(() => Object.keys(dirty).length, [dirty]);
 
-  async function onLogin() {
-    setLoading(true);
-    try {
-      const r = await crmLogin(token, pin, needsNewPin ? newPin : undefined);
-      setRecommenderName(r.recommenderName || "");
-      setNeedsNewPin(false);
-      setPin("");
-      setNewPin("");
-      await loadAll();
-    } catch (e: any) {
-      const msg = String(e?.message || e);
-      if (msg.includes("invalid_initial_pin") || msg.includes("newPin")) {
-        // 최초 PIN 설정 플로우가 섞이면 여기서 처리
-        setNeedsNewPin(true);
-      }
-      alert(msg);
-    } finally {
-      setLoading(false);
-    }
+async function onLogin() {
+  // 1) 기본 입력 체크
+  if (!pin) {
+    alert("PIN을 입력해 주십시오.");
+    return;
   }
+
+  setLoading(true);
+  try {
+    await crmLogin(token, pin);
+    setPin("");
+    await loadAll();
+  } catch (e: any) {
+    alert(String(e?.message || e));
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function onFirstJoin() {
+  if (!initialPin) {
+    alert("가입용 PIN을 입력해 주십시오.");
+    return;
+  }
+  if (!setPinValue || setPinValue.length < 4) {
+    alert("바꿀 PIN은 최소 4자리 이상이어야 합니다.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    // 서버 규칙: 최초 로그인은 pin=초기PIN, newPin=새PIN
+    await crmLogin(token, initialPin, setPinValue);
+
+    // 성공하면 가입 화면 닫고 초기화
+    setShowFirstJoin(false);
+    setInitialPin("");
+    setSetPinValue("");
+
+    await loadAll();
+  } catch (e: any) {
+    alert(String(e?.message || e));
+  } finally {
+    setLoading(false);
+  }
+}
 
   async function onSubmit() {
     const updates = Object.entries(dirty).map(([joinNo, patch]) => ({
@@ -163,26 +190,68 @@ useEffect(() => {
       </div>
 
       {!recommenderName ? (
-        <div style={{ border: "1px solid #ddd", padding: 12, maxWidth: 420 }}>
-          <div style={{ marginBottom: 8 }}>PIN 입력</div>
-          <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" />
-          {needsNewPin ? (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ marginBottom: 4 }}>새 PIN 설정(최소 4자리)</div>
-              <input
-                value={newPin}
-                onChange={(e) => setNewPin(e.target.value)}
-                placeholder="새 PIN"
-              />
-            </div>
-          ) : null}
-          <div style={{ marginTop: 10 }}>
-            <button onClick={onLogin} disabled={loading}>
-              로그인
-            </button>
-          </div>
+  <div style={{ border: "1px solid #ddd", padding: 12, maxWidth: 460 }}>
+    {!showFirstJoin ? (
+      <>
+        <div style={{ marginBottom: 8 }}>PIN 입력</div>
+        <input
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          placeholder="PIN"
+        />
+
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button onClick={onLogin} disabled={loading}>
+            로그인
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowFirstJoin(true)}
+            disabled={loading}
+          >
+            처음 접속했습니다
+          </button>
         </div>
-      ) : null}
+      </>
+    ) : (
+      <>
+        <div style={{ marginBottom: 10, fontWeight: 600 }}>새로운 PIN 설정하기</div>
+
+        <div style={{ marginBottom: 6 }}>가입용 PIN</div>
+        <input
+          value={initialPin}
+          onChange={(e) => setInitialPin(e.target.value)}
+          placeholder="가입용 PIN"
+        />
+
+        <div style={{ marginTop: 10, marginBottom: 6 }}>바꿀 PIN</div>
+        <input
+          value={setPinValue}
+          onChange={(e) => setSetPinValue(e.target.value)}
+          placeholder="바꿀 PIN (최소 4자리)"
+        />
+
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={onFirstJoin} disabled={loading}>
+            관리자 가입
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowFirstJoin(false);
+              setInitialPin("");
+              setSetPinValue("");
+            }}
+            disabled={loading}
+          >
+            돌아가기
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+) : null}
 
       {recommenderName ? (
         <>

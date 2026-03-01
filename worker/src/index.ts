@@ -304,12 +304,22 @@ function toTri(v: any): 0 | 1 | 2 {
   return 0;
 }
 
+/**
+ * crm_auth 시트 구조 (A~F)
+ * A token
+ * B 이름(표시용)
+ * C pin_hash
+ * D pin_set_at
+ * E last_login_at
+ * F 추천인 가입번호(일련번호, ex 00005)
+ */
 type AuthRow = {
   token: string;
-  recommenderName: string;
+  recommenderName: string;     // 표시용
   pinHash: string;
   pinSetAt: string;
   lastLoginAt: string;
+  recommenderJoinNo: string;   // ✅ 핵심: 추천인 가입번호(권한/필터 기준)
   rowIndex1Based: number;
 };
 
@@ -319,7 +329,8 @@ async function computePinHash(token: string, pin: string) {
 
 async function getAuthByToken(env: Env, token: string): Promise<AuthRow | null> {
   const sheet = env.CRM_AUTH_SHEET_NAME || "crm_auth";
-  const values = await sheetsGetValues(env, `${sheet}!A1:E`);
+  // ✅ A~F까지 읽기
+  const values = await sheetsGetValues(env, `${sheet}!A1:F`);
   if (values.length < 2) return null;
 
   for (let i = 1; i < values.length; i++) {
@@ -332,6 +343,7 @@ async function getAuthByToken(env: Env, token: string): Promise<AuthRow | null> 
         pinHash: norm(r[2]),
         pinSetAt: norm(r[3]),
         lastLoginAt: norm(r[4]),
+        recommenderJoinNo: norm(r[5]),
         rowIndex1Based: i + 1,
       };
     }
@@ -343,30 +355,52 @@ async function updateAuthRow(env: Env, row: AuthRow, patch: Partial<AuthRow>) {
   const sheet = env.CRM_AUTH_SHEET_NAME || "crm_auth";
   const n = row.rowIndex1Based;
   const next = { ...row, ...patch };
+
+  // ✅ A~F 유지 (F는 수정하지 않더라도 덮어쓰면 안정적)
   await sheetsBatchUpdate(env, [
     {
-      rangeA1: `${sheet}!A${n}:E${n}`,
-      values: [[next.token, next.recommenderName, next.pinHash, next.pinSetAt, next.lastLoginAt]],
+      rangeA1: `${sheet}!A${n}:F${n}`,
+      values: [[
+        next.token,
+        next.recommenderName,
+        next.pinHash,
+        next.pinSetAt,
+        next.lastLoginAt,
+        next.recommenderJoinNo,
+      ]],
     },
   ]);
 }
 
+/**
+ * songssamone_raw (A~J)
+ * A 가입번호
+ * B 이름
+ * C 전화번호
+ * D 추천1(본부장) - 가입번호
+ * E 추천2(특보)   - 가입번호
+ * F 추천3         - 가입번호
+ * G 가입가능여부
+ * H 납부가능여부
+ * I 링크접속여부(수식)
+ * J 최종가입여부
+ */
 type RawMember = {
   joinNo: string;
   name: string;
   phone: string;
-  recommender1: string;
-  recommender2: string;
-  recommender3: string;
+  recommender1: string; // D (가입번호)
+  recommender2: string; // E (가입번호)
+  recommender3: string; // F (가입번호)
   joinable: 0 | 1 | 2;
   payable: 0 | 1 | 2;
-  linkAccess: 0 | 1 | 2; // 수식 결과 값
+  linkAccess: 0 | 1 | 2;
   finalJoin: 0 | 1 | 2;
   rowIndex1Based: number;
 };
 
-function matchesRecommender(m: RawMember, rn: string) {
-  const key = rn.trim();
+function matchesRecommenderByJoinNo(m: RawMember, rj: string) {
+  const key = rj.trim();
   if (!key) return false;
   return m.recommender1 === key || m.recommender2 === key || m.recommender3 === key;
 }
@@ -391,7 +425,7 @@ async function loadRaw(env: Env): Promise<RawMember[]> {
       recommender3: norm(r[5]),
       joinable: toTri(r[6]),
       payable: toTri(r[7]),
-      linkAccess: toTri(r[8]), // I열 수식 결과
+      linkAccess: toTri(r[8]),
       finalJoin: toTri(r[9]),
       rowIndex1Based: i + 1,
     });
@@ -432,6 +466,11 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
     const auth = await getAuthByToken(env, token);
     if (!auth) return json({ ok: false, error: "unknown_token" }, 401);
 
+    // ✅ 추천인 가입번호 없으면 시스템이 매칭 불가
+    if (!auth.recommenderJoinNo) {
+      return json({ ok: false, error: "missing_recommender_joinno" }, 500);
+    }
+
     const first = !auth.pinHash;
 
     if (first) {
@@ -446,8 +485,20 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
         lastLoginAt: nowISO(),
       });
 
-      const jwt = await signJWT({ token, rn: auth.recommenderName }, env, 60 * 60 * 12);
-      return json({ ok: true, firstSet: true, token: jwt, recommenderName: auth.recommenderName });
+      // ✅ JWT에 rj 포함
+      const jwt = await signJWT(
+        { token, rn: auth.recommenderName, rj: auth.recommenderJoinNo },
+        env,
+        60 * 60 * 12
+      );
+
+      return json({
+        ok: true,
+        firstSet: true,
+        token: jwt,
+        recommenderName: auth.recommenderName,
+        recommenderJoinNo: auth.recommenderJoinNo,
+      });
     }
 
     const hash = await computePinHash(token, pin);
@@ -455,8 +506,19 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
 
     await updateAuthRow(env, auth, { lastLoginAt: nowISO() });
 
-    const jwt = await signJWT({ token, rn: auth.recommenderName }, env, 60 * 60 * 12);
-    return json({ ok: true, token: jwt, recommenderName: auth.recommenderName });
+    // ✅ JWT에 rj 포함
+    const jwt = await signJWT(
+      { token, rn: auth.recommenderName, rj: auth.recommenderJoinNo },
+      env,
+      60 * 60 * 12
+    );
+
+    return json({
+      ok: true,
+      token: jwt,
+      recommenderName: auth.recommenderName,
+      recommenderJoinNo: auth.recommenderJoinNo,
+    });
   }
 
   // 인증 필요
@@ -465,15 +527,20 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
   const payload = await verifyJWT(bearer, env);
   if (!payload) return json({ ok: false, error: "invalid_token" }, 401);
 
-  const rn = norm(payload.rn);
+  const rn = norm(payload.rn); // 표시용
+  const rj = norm(payload.rj); // ✅ 권한/필터 핵심
+
+  if (!rj) return json({ ok: false, error: "missing_recommender_joinno" }, 401);
 
   // GET /crm/me
   if (req.method === "GET" && path === "/crm/me") {
     const raw = await loadRaw(env);
-    const mine = raw.filter((m) => matchesRecommender(m, rn));
+    const mine = raw.filter((m) => matchesRecommenderByJoinNo(m, rj));
+
     return json({
       ok: true,
       recommenderName: rn,
+      recommenderJoinNo: rj,
       count: mine.length,
       rows: mine.map((m) => ({
         joinNo: m.joinNo,
@@ -481,7 +548,7 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
         phone: maskPhone(m.phone),
         joinable: m.joinable,
         payable: m.payable,
-        linkAccess: m.linkAccess, // 수식 결과
+        linkAccess: m.linkAccess,
         finalJoin: m.finalJoin,
       })),
       time: nowISO(),
@@ -491,11 +558,21 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
   // GET /crm/stats
   if (req.method === "GET" && path === "/crm/stats") {
     const raw = await loadRaw(env);
-    const mine = raw.filter((m) => matchesRecommender(m, rn));
+    const mine = raw.filter((m) => matchesRecommenderByJoinNo(m, rj));
+
     const total = mine.length;
     const link = mine.filter((m) => m.linkAccess === 1).length;
     const done = mine.filter((m) => m.finalJoin === 1).length;
-    return json({ ok: true, recommenderName: rn, total, link, done, time: nowISO() });
+
+    return json({
+      ok: true,
+      recommenderName: rn,
+      recommenderJoinNo: rj,
+      total,
+      link,
+      done,
+      time: nowISO(),
+    });
   }
 
   // PATCH /crm/update  body: { updates: [{ joinNo, joinable?, payable?, finalJoin? }] }
@@ -505,7 +582,11 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
 
     const rawSheet = env.CRM_RAW_SHEET_NAME || "songssamone_raw";
     const raw = await loadRaw(env);
-    const mineMap = new Map(raw.filter((m) => matchesRecommender(m, rn)).map((m) => [m.joinNo, m]));
+
+    // ✅ 권한: rj 기준으로 “본인 추천 명단”만 수정 가능
+    const mineMap = new Map(
+      raw.filter((m) => matchesRecommenderByJoinNo(m, rj)).map((m) => [m.joinNo, m])
+    );
 
     const updates: Array<{ rangeA1: string; values: any[][] }> = [];
     let applied = 0;
@@ -532,7 +613,6 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
       applied++;
     }
 
-    // 과도한 payload 방지
     const CHUNK = 300;
     for (let i = 0; i < updates.length; i += CHUNK) {
       await sheetsBatchUpdate(env, updates.slice(i, i + CHUNK));
@@ -551,6 +631,7 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     try {
+      if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
       const url = new URL(req.url);
 
       // CRM 라우팅
