@@ -61,12 +61,36 @@ export default function CheckPage() {
     }
   }
 
-  useEffect(() => {
-    // 토큰이 바뀌면 기존 세션을 유지할지 애매하니 MVP에서는 유지.
-    // 필요하면 token 바뀌면 로그아웃 처리 가능.
-    loadAll().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  // URL token이 바뀌면, 기존 저장 토큰이 다른 추천인 토큰일 수 있으니 제거
+  const t = localStorage.getItem("crm_token");
+  if (t) {
+    try {
+      const payloadPart = t.split(".")[1];
+      if (!payloadPart) throw new Error("bad_jwt");
+
+      const b64 =
+        payloadPart.replace(/-/g, "+").replace(/_/g, "/") +
+        "===".slice((payloadPart.length + 3) % 4);
+
+      const payload = JSON.parse(atob(b64));
+      const savedToken = String(payload?.token || "");
+
+      if (savedToken && token && savedToken !== token) {
+        localStorage.removeItem("crm_token");
+      }
+    } catch {
+      localStorage.removeItem("crm_token");
+    }
+  }
+
+  loadAll().catch(() => {
+    // 자동 로그인 실패 시 로그인 화면으로 남기기
+    setRecommenderName("");
+  });
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [token]);
 
   const changedCount = useMemo(() => Object.keys(dirty).length, [dirty]);
 
