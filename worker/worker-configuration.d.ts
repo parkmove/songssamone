@@ -1879,6 +1879,7 @@ interface KVNamespaceGetWithMetadataResult<Value, Metadata> {
 }
 type QueueContentType = "text" | "bytes" | "json" | "v8";
 interface Queue<Body = unknown> {
+    [x: string]: any;
     send(message: Body, options?: QueueSendOptions): Promise<void>;
     sendBatch(messages: Iterable<MessageSendRequest<Body>>, options?: QueueSendBatchOptions): Promise<void>;
 }

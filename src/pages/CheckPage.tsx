@@ -6,9 +6,18 @@ type Row = {
   joinNo: string;
   name: string;
   phone: string;
-  joinable: 0 | 1 | 2;
-  payable: 0 | 1 | 2;
+  /**
+   * 회원 구분: A/B/C 구분 값
+   * G열에 저장되며, 서버는 문자열로 처리한다.
+   */
+  memberType: string;
+  /**
+   * 링크 접속 여부 (0: 미확인, 1: 예, 2: 아니오)
+   */
   linkAccess: 0 | 1 | 2;
+  /**
+   * 최종 가입 여부 (0: 미확인, 1: 예, 2: 아니오)
+   */
   finalJoin: 0 | 1 | 2;
 };
 
@@ -30,6 +39,27 @@ function TriToggle({
       <option value={0}>미확인</option>
       <option value={1}>예</option>
       <option value={2}>아니오</option>
+    </select>
+  );
+}
+
+/**
+ * 회원 구분 선택 컴포넌트.
+ * A, B, C 세 가지 값을 선택할 수 있다.
+ */
+function MemberTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">-</option>
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
     </select>
   );
 }
@@ -145,9 +175,9 @@ async function onFirstJoin() {
   async function onSubmit() {
     const updates = Object.entries(dirty).map(([joinNo, patch]) => ({
       joinNo,
-      joinable: patch.joinable,
-      payable: patch.payable,
-      finalJoin: patch.finalJoin,
+      // 회원 구분과 최종가입만 서버에 전송한다. H열(payable)은 더 이상 사용하지 않는다.
+      memberType: (patch as any).memberType,
+      finalJoin: (patch as any).finalJoin,
     }));
     if (updates.length === 0) return;
 
@@ -276,8 +306,9 @@ async function onFirstJoin() {
                   <th align="left">가입번호</th>
                   <th align="left">이름</th>
                   <th align="left">전화</th>
-                  <th align="left">가입가능</th>
-                  <th align="left">납부가능</th>
+                  <th align="left">회원구분</th>
+                  {/* 납부가능 여부는 더 이상 사용하지 않으며, 예비 열로 남겨둔다. */}
+                  <th align="left" style={{ visibility: "hidden" }}>예비</th>
                   <th align="left">링크접속</th>
                   <th align="left">최종가입</th>
                 </tr>
@@ -289,17 +320,13 @@ async function onFirstJoin() {
                     <td>{r.name}</td>
                     <td>{r.phone}</td>
                     <td>
-                      <TriToggle
-                        value={r.joinable}
-                        onChange={(v) => updateRow(r.joinNo, { joinable: v })}
+                      <MemberTypeSelect
+                        value={r.memberType}
+                        onChange={(v) => updateRow(r.joinNo, { memberType: v } as any)}
                       />
                     </td>
-                    <td>
-                      <TriToggle
-                        value={r.payable}
-                        onChange={(v) => updateRow(r.joinNo, { payable: v })}
-                      />
-                    </td>
+                    {/* 납부가능 열은 더 이상 사용하지 않으므로 비워둡니다. */}
+                    <td></td>
                     <td>{triLabel(r.linkAccess)}</td>
                     <td>
                       <TriToggle

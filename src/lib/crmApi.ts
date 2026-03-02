@@ -36,7 +36,7 @@ export async function crmStats() {
 }
 
 export async function crmUpdate(
-  updates: Array<{ joinNo: string; joinable?: number; payable?: number; finalJoin?: number }>
+  updates: Array<{ joinNo: string; memberType?: string; finalJoin?: number }>
 ) {
   const headers = authHeaders();
   headers.set("content-type", "application/json");

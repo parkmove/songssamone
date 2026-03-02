@@ -380,8 +380,8 @@ async function updateAuthRow(env: Env, row: AuthRow, patch: Partial<AuthRow>) {
  * D 추천1(본부장) - 가입번호
  * E 추천2(특보)   - 가입번호
  * F 추천3         - 가입번호
- * G 가입가능여부
- * H 납부가능여부
+ * G 회원구분 (예: A/B/C)
+ * H (예비 열, 현재 사용하지 않음)
  * I 링크접속여부(수식)
  * J 최종가입여부
  */
@@ -392,8 +392,7 @@ type RawMember = {
   recommender1: string; // D (가입번호)
   recommender2: string; // E (가입번호)
   recommender3: string; // F (가입번호)
-  joinable: 0 | 1 | 2;
-  payable: 0 | 1 | 2;
+  memberType: string;   // G (회원구분)
   linkAccess: 0 | 1 | 2;
   finalJoin: 0 | 1 | 2;
   rowIndex1Based: number;
@@ -423,8 +422,7 @@ async function loadRaw(env: Env): Promise<RawMember[]> {
       recommender1: norm(r[3]),
       recommender2: norm(r[4]),
       recommender3: norm(r[5]),
-      joinable: toTri(r[6]),
-      payable: toTri(r[7]),
+      memberType: norm(r[6]),
       linkAccess: toTri(r[8]),
       finalJoin: toTri(r[9]),
       rowIndex1Based: i + 1,
@@ -546,8 +544,7 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
         joinNo: m.joinNo,
         name: m.name,
         phone: maskPhone(m.phone),
-        joinable: m.joinable,
-        payable: m.payable,
+        memberType: m.memberType,
         linkAccess: m.linkAccess,
         finalJoin: m.finalJoin,
       })),
@@ -575,7 +572,7 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
     });
   }
 
-  // PATCH /crm/update  body: { updates: [{ joinNo, joinable?, payable?, finalJoin? }] }
+  // PATCH /crm/update  body: { updates: [{ joinNo, memberType?, finalJoin? }] }
   if (req.method === "PATCH" && path === "/crm/update") {
     const body: any = await req.json().catch(() => ({}));
     if (!Array.isArray(body.updates)) return json({ ok: false, error: "updates_array_required" }, 400);
@@ -598,17 +595,16 @@ async function handleCrm(req: Request, env: Env): Promise<Response> {
       const row = mineMap.get(joinNo);
       if (!row) continue; // 권한 밖
 
-      const nextJoinable = u.joinable !== undefined ? toTri(u.joinable) : row.joinable;
-      const nextPayable = u.payable !== undefined ? toTri(u.payable) : row.payable;
+      // memberType 컬럼(G열)과 finalJoin(J열)만 수정
+      const nextMemberType = u.memberType !== undefined ? norm(u.memberType) : row.memberType;
       const nextFinal = u.finalJoin !== undefined ? toTri(u.finalJoin) : row.finalJoin;
 
-      const changed =
-        nextJoinable !== row.joinable || nextPayable !== row.payable || nextFinal !== row.finalJoin;
+      const changed = nextMemberType !== row.memberType || nextFinal !== row.finalJoin;
       if (!changed) continue;
 
       const n = row.rowIndex1Based;
-      // G,H,J만 수정. I(링크접속여부)는 수식이므로 절대 건드리지 않음.
-      updates.push({ rangeA1: `${rawSheet}!G${n}:H${n}`, values: [[nextJoinable, nextPayable]] });
+      // G열(memberType), J열(finalJoin)만 수정. H열은 건드리지 않음. I(링크접속)는 수식이므로 절대 건드리지 않음.
+      updates.push({ rangeA1: `${rawSheet}!G${n}:G${n}`, values: [[nextMemberType]] });
       updates.push({ rangeA1: `${rawSheet}!J${n}:J${n}`, values: [[nextFinal]] });
       applied++;
     }
@@ -664,7 +660,7 @@ export default {
         referer,
       };
 
-      await env.LEAD_QUEUE.send(payload);
+      await env.LEAD_QUEUE.send(JSON.stringify(payload));
       return json({ ok: true }, 200);
     } catch (e: any) {
       console.error("FETCH ERROR", e?.stack || e?.message || e);
@@ -673,19 +669,22 @@ export default {
   },
 
   async queue(batch: MessageBatch<any>, env: Env) {
-    const rows = batch.messages.map((m) => toLeadRow(m.body));
+  const rows = batch.messages.map((m) => {
+    const body = typeof m.body === "string" ? JSON.parse(m.body) : m.body;
+    return toLeadRow(body);
+  });
 
-    try {
-      if (rows.length === 0) {
-        batch.ackAll();
-        return;
-      }
-
-      await appendRows(env, rows);
+  try {
+    if (rows.length === 0) {
       batch.ackAll();
-    } catch (e: any) {
-      console.error("QUEUE ERROR", e?.stack || e?.message || e);
-      throw e;
+      return;
+    }
+
+    await appendRows(env, rows);
+    batch.ackAll();
+  } catch (e: any) {
+    console.error("QUEUE ERROR", e?.stack || e?.message || e);
+    throw e;
     }
   },
 };
