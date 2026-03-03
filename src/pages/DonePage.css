@@ -1,0 +1,35 @@
+.done {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  text-align: center;
+}
+
+.done__title {
+  margin-top: 0;
+}
+
+.done__desc {
+  margin-top: 12px;
+  color: #555;
+}
+
+.done__guide {
+  margin-top: 24px;
+}
+
+.done__button {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 12px 20px;
+  font-size: 16px;
+  background-color: #111;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.done__button:hover {
+  opacity: 0.9;
+}

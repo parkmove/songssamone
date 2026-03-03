@@ -1,0 +1,115 @@
+.cp {
+  padding: 16px;
+}
+
+.cp__title {
+  margin: 0 0 12px 0;
+}
+
+.cp__meta {
+  margin-bottom: 12px;
+}
+
+.cp__loginCard {
+  border: 1px solid #ddd;
+  padding: 12px;
+  max-width: 460px;
+}
+
+.cp__hint {
+  margin-bottom: 8px;
+}
+
+.cp__headline {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.cp__label {
+  margin-bottom: 6px;
+}
+
+.cp__label--mt10 {
+  margin-top: 10px;
+}
+
+.cp__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+}
+
+.cp__input:focus {
+  border-color: #999;
+}
+
+.cp__select {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.cp__row {
+  display: flex;
+  gap: 8px;
+}
+
+.cp__row--mt10 {
+  margin-top: 10px;
+}
+
+.cp__row--mt12 {
+  margin-top: 12px;
+}
+
+.cp__row--actions {
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.cp__btn {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cp__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cp__btn--secondary {
+  background: #f7f7f7;
+}
+
+.cp__stats {
+  margin-bottom: 12px;
+}
+
+.cp__tableWrap {
+  overflow-x: auto;
+}
+
+.cp__table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.cp__tr {
+  border-top: 1px solid #eee;
+}
+
+.cp__thHidden {
+  visibility: hidden;
+}
+
+.cp__help {
+  margin-top: 16px;
+  color: #666;
+}

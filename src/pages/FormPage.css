@@ -1,0 +1,79 @@
+.fp {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.fp__title {
+  margin-top: 0;
+}
+
+.fp__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.fp__dash {
+  user-select: none;
+}
+
+.fp__input {
+  padding: 12px;
+  font-size: 16px;
+  text-align: center;
+
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.fp__input:focus {
+  border-color: #999;
+}
+
+.fp__input--p1 {
+  width: 90px;
+}
+
+.fp__input--p2 {
+  width: 110px;
+}
+
+.fp__input--p3 {
+  width: 110px;
+}
+
+.fp__error {
+  color: crimson;
+  margin-top: 10px;
+}
+
+.fp__submit {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  margin-top: 16px;
+
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.fp__submit:hover {
+  opacity: 0.92;
+}
+
+.fp__submit:active {
+  transform: translateY(1px);
+}
+
+.fp__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import "./DonePage.css";
 
 const REDIRECT_URL = "https://example.com/선거인단등록";
 // 실제 이동할 URL로 교체하세요.
@@ -29,35 +30,20 @@ export default function DonePage() {
   }, []);
 
   return (
-    <main
-      style={{
-        maxWidth: 520,
-        margin: "0 auto",
-        padding: 24,
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-        textAlign: "center",
-      }}
-    >
-      <h1 style={{ marginTop: 0 }}>잠시 후 선거인단 등록 페이지로 이동합니다.</h1>
-      <p style={{ marginTop: 12, color: "#555" }}>
+    <main className="done">
+      <h1 className="done__title">
+        잠시 후 선거인단 등록 페이지로 이동합니다.
+      </h1>
+
+      <p className="done__desc">
         선거인단 페이지에서 본인인증을 진행하여야 신청이 완료됩니다.
       </p>
 
-      <p style={{ marginTop: 24 }}>자동으로 이동하지 않으면 아래 버튼을 눌러주세요.</p>
+      <p className="done__guide">
+        자동으로 이동하지 않으면 아래 버튼을 눌러주세요.
+      </p>
 
-      <a
-        href={REDIRECT_URL}
-        style={{
-          display: "inline-block",
-          marginTop: 12,
-          padding: "12px 20px",
-          fontSize: 16,
-          backgroundColor: "#111",
-          color: "#fff",
-          textDecoration: "none",
-          borderRadius: 6,
-        }}
-      >
+      <a href={REDIRECT_URL} className="done__button">
         바로 이동하기
       </a>
     </main>

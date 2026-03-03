@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { crmLogin, crmMe, crmStats, crmUpdate, crmLogout } from "../lib/crmApi";
+import "./CheckPage.css";
 
 type Row = {
   joinNo: string;
@@ -35,7 +36,11 @@ function TriToggle({
   onChange: (v: 0 | 1 | 2) => void;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(Number(e.target.value) as 0 | 1 | 2)}>
+    <select
+      className="cp__select"
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value) as 0 | 1 | 2)}
+    >
       <option value={0}>미확인</option>
       <option value={1}>예</option>
       <option value={2}>아니오</option>
@@ -55,7 +60,11 @@ function MemberTypeSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
+    <select
+      className="cp__select"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
       <option value="">-</option>
       <option value="A">A</option>
       <option value="B">B</option>
@@ -67,7 +76,7 @@ function MemberTypeSelect({
 export default function CheckPage() {
   const { token = "" } = useParams();
 
-  const [pin, setPin] = useState("");           // 일반 로그인 PIN
+  const [pin, setPin] = useState(""); // 일반 로그인 PIN
   const [showFirstJoin, setShowFirstJoin] = useState(false);
 
   const [initialPin, setInitialPin] = useState(""); // 가입용 PIN(초기 PIN)
@@ -93,84 +102,84 @@ export default function CheckPage() {
     }
   }
 
-useEffect(() => {
-  // URL token 바뀌면 저장 토큰 검사 후 불일치 시 제거
-  const t = localStorage.getItem("crm_token");
-  if (t) {
-    try {
-      const payloadPart = t.split(".")[1];
-      if (!payloadPart) throw new Error("bad_jwt");
-      const b64 =
-        payloadPart.replace(/-/g, "+").replace(/_/g, "/") +
-        "===".slice((payloadPart.length + 3) % 4);
-      const payload = JSON.parse(atob(b64));
-      const savedToken = String(payload?.token || "");
-      if (savedToken && token && savedToken !== token) {
+  useEffect(() => {
+    // URL token 바뀌면 저장 토큰 검사 후 불일치 시 제거
+    const t = localStorage.getItem("crm_token");
+    if (t) {
+      try {
+        const payloadPart = t.split(".")[1];
+        if (!payloadPart) throw new Error("bad_jwt");
+        const b64 =
+          payloadPart.replace(/-/g, "+").replace(/_/g, "/") +
+          "===".slice((payloadPart.length + 3) % 4);
+        const payload = JSON.parse(atob(b64));
+        const savedToken = String(payload?.token || "");
+        if (savedToken && token && savedToken !== token) {
+          localStorage.removeItem("crm_token");
+        }
+      } catch {
         localStorage.removeItem("crm_token");
       }
-    } catch {
-      localStorage.removeItem("crm_token");
     }
-  }
 
-  // 토큰이 남아 있을 때만 자동 로딩
-  if (localStorage.getItem("crm_token")) {
-    loadAll().catch(() => setRecommenderName(""));
-  } else {
-    setRecommenderName("");
-  }
+    // 토큰이 남아 있을 때만 자동 로딩
+    if (localStorage.getItem("crm_token")) {
+      loadAll().catch(() => setRecommenderName(""));
+    } else {
+      setRecommenderName("");
+    }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const changedCount = useMemo(() => Object.keys(dirty).length, [dirty]);
 
-async function onLogin() {
-  // 1) 기본 입력 체크
-  if (!pin) {
-    alert("PIN을 입력해 주십시오.");
-    return;
+  async function onLogin() {
+    // 1) 기본 입력 체크
+    if (!pin) {
+      alert("PIN을 입력해 주십시오.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await crmLogin(token, pin);
+      setPin("");
+      await loadAll();
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    } finally {
+      setLoading(false);
+    }
   }
 
-  setLoading(true);
-  try {
-    await crmLogin(token, pin);
-    setPin("");
-    await loadAll();
-  } catch (e: any) {
-    alert(String(e?.message || e));
-  } finally {
-    setLoading(false);
-  }
-}
+  async function onFirstJoin() {
+    if (!initialPin) {
+      alert("가입용 PIN을 입력해 주십시오.");
+      return;
+    }
+    if (!setPinValue || setPinValue.length < 4) {
+      alert("바꿀 PIN은 최소 4자리 이상이어야 합니다.");
+      return;
+    }
 
-async function onFirstJoin() {
-  if (!initialPin) {
-    alert("가입용 PIN을 입력해 주십시오.");
-    return;
-  }
-  if (!setPinValue || setPinValue.length < 4) {
-    alert("바꿀 PIN은 최소 4자리 이상이어야 합니다.");
-    return;
-  }
+    setLoading(true);
+    try {
+      // 서버 규칙: 최초 로그인은 pin=초기PIN, newPin=새PIN
+      await crmLogin(token, initialPin, setPinValue);
 
-  setLoading(true);
-  try {
-    // 서버 규칙: 최초 로그인은 pin=초기PIN, newPin=새PIN
-    await crmLogin(token, initialPin, setPinValue);
+      // 성공하면 가입 화면 닫고 초기화
+      setShowFirstJoin(false);
+      setInitialPin("");
+      setSetPinValue("");
 
-    // 성공하면 가입 화면 닫고 초기화
-    setShowFirstJoin(false);
-    setInitialPin("");
-    setSetPinValue("");
-
-    await loadAll();
-  } catch (e: any) {
-    alert(String(e?.message || e));
-  } finally {
-    setLoading(false);
+      await loadAll();
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   async function onSubmit() {
     const updates = Object.entries(dirty).map(([joinNo, patch]) => ({
@@ -196,7 +205,7 @@ async function onFirstJoin() {
 
   function updateRow(joinNo: string, patch: Partial<Row>) {
     setRows((prev) =>
-      prev.map((r) => (r.joinNo === joinNo ? { ...r, ...patch } as Row : r))
+      prev.map((r) => (r.joinNo === joinNo ? ({ ...r, ...patch } as Row) : r))
     );
     setDirty((prev) => ({ ...prev, [joinNo]: { ...(prev[joinNo] || {}), ...patch } }));
   }
@@ -211,111 +220,121 @@ async function onFirstJoin() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>추천인 확인 페이지</h2>
+    <div className="cp">
+      <h2 className="cp__title">추천인 확인 페이지</h2>
 
-      <div style={{ marginBottom: 12 }}>
+      <div className="cp__meta">
         <div>토큰: {token}</div>
         {recommenderName ? <div>추천인: {recommenderName}</div> : null}
       </div>
 
       {!recommenderName ? (
-  <div style={{ border: "1px solid #ddd", padding: 12, maxWidth: 460 }}>
-    {!showFirstJoin ? (
-      <>
-        <div style={{ marginBottom: 8 }}>PIN 입력</div>
-        <input
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          placeholder="PIN"
-        />
+        <div className="cp__loginCard">
+          {!showFirstJoin ? (
+            <>
+              <div className="cp__hint">PIN 입력</div>
+              <input
+                className="cp__input"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="PIN"
+              />
 
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button onClick={onLogin} disabled={loading}>
-            로그인
-          </button>
+              <div className="cp__row cp__row--mt10">
+                <button className="cp__btn" onClick={onLogin} disabled={loading}>
+                  로그인
+                </button>
 
-          <button
-            type="button"
-            onClick={() => setShowFirstJoin(true)}
-            disabled={loading}
-          >
-            처음 접속했습니다
-          </button>
+                <button
+                  className="cp__btn cp__btn--secondary"
+                  type="button"
+                  onClick={() => setShowFirstJoin(true)}
+                  disabled={loading}
+                >
+                  처음 접속했습니다
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="cp__headline">새로운 PIN 설정하기</div>
+
+              <div className="cp__label">가입용 PIN</div>
+              <input
+                className="cp__input"
+                value={initialPin}
+                onChange={(e) => setInitialPin(e.target.value)}
+                placeholder="가입용 PIN"
+              />
+
+              <div className="cp__label cp__label--mt10">바꿀 PIN</div>
+              <input
+                className="cp__input"
+                value={setPinValue}
+                onChange={(e) => setSetPinValue(e.target.value)}
+                placeholder="바꿀 PIN (최소 4자리)"
+              />
+
+              <div className="cp__row cp__row--mt12">
+                <button className="cp__btn" onClick={onFirstJoin} disabled={loading}>
+                  관리자 가입
+                </button>
+                <button
+                  className="cp__btn cp__btn--secondary"
+                  type="button"
+                  onClick={() => {
+                    setShowFirstJoin(false);
+                    setInitialPin("");
+                    setSetPinValue("");
+                  }}
+                  disabled={loading}
+                >
+                  돌아가기
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </>
-    ) : (
-      <>
-        <div style={{ marginBottom: 10, fontWeight: 600 }}>새로운 PIN 설정하기</div>
-
-        <div style={{ marginBottom: 6 }}>가입용 PIN</div>
-        <input
-          value={initialPin}
-          onChange={(e) => setInitialPin(e.target.value)}
-          placeholder="가입용 PIN"
-        />
-
-        <div style={{ marginTop: 10, marginBottom: 6 }}>바꿀 PIN</div>
-        <input
-          value={setPinValue}
-          onChange={(e) => setSetPinValue(e.target.value)}
-          placeholder="바꿀 PIN (최소 4자리)"
-        />
-
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button onClick={onFirstJoin} disabled={loading}>
-            관리자 가입
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowFirstJoin(false);
-              setInitialPin("");
-              setSetPinValue("");
-            }}
-            disabled={loading}
-          >
-            돌아가기
-          </button>
-        </div>
-      </>
-    )}
-  </div>
-) : null}
+      ) : null}
 
       {recommenderName ? (
         <>
-          <div style={{ display: "flex", gap: 8, margin: "12px 0" }}>
-            <button onClick={onPrint}>프린트</button>
-            <button onClick={onSubmit} disabled={loading || changedCount === 0}>
+          <div className="cp__row cp__row--actions">
+            <button className="cp__btn" onClick={onPrint}>
+              프린트
+            </button>
+            <button className="cp__btn" onClick={onSubmit} disabled={loading || changedCount === 0}>
               제출하기 {changedCount ? `(${changedCount})` : ""}
             </button>
-            <button onClick={onLogout}>로그아웃</button>
+            <button className="cp__btn cp__btn--secondary" onClick={onLogout}>
+              로그아웃
+            </button>
           </div>
 
           {stats ? (
-            <div style={{ marginBottom: 12 }}>
+            <div className="cp__stats">
               표출 인원: {stats.total} / 링크접속: {stats.link} / 최종가입: {stats.done}
             </div>
           ) : null}
 
-          <div style={{ overflowX: "auto" }}>
-            <table cellPadding={8} style={{ borderCollapse: "collapse", width: "100%" }}>
+          <div className="cp__tableWrap">
+            <table className="cp__table" cellPadding={8}>
               <thead>
                 <tr>
                   <th align="left">가입번호</th>
                   <th align="left">이름</th>
                   <th align="left">전화</th>
                   <th align="left">회원구분</th>
-                  {/* 납부가능 여부는 더 이상 사용하지 않으며, 예비 열로 남겨둔다. */}
-                  <th align="left" style={{ visibility: "hidden" }}>예비</th>
+                  <th align="left" className="cp__thHidden">
+                    예비
+                  </th>
                   <th align="left">링크접속</th>
                   <th align="left">최종가입</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.joinNo} style={{ borderTop: "1px solid #eee" }}>
+                  <tr key={r.joinNo} className="cp__tr">
                     <td>{r.joinNo}</td>
                     <td>{r.name}</td>
                     <td>{r.phone}</td>
@@ -325,7 +344,6 @@ async function onFirstJoin() {
                         onChange={(v) => updateRow(r.joinNo, { memberType: v } as any)}
                       />
                     </td>
-                    {/* 납부가능 열은 더 이상 사용하지 않으므로 비워둡니다. */}
                     <td></td>
                     <td>{triLabel(r.linkAccess)}</td>
                     <td>
@@ -340,9 +358,7 @@ async function onFirstJoin() {
             </table>
           </div>
 
-          <div style={{ marginTop: 16, color: "#666" }}>
-            데이터 관련 문의: (여기에 연락처 문구)
-          </div>
+          <div className="cp__help">데이터 관련 문의: (여기에 연락처 문구)</div>
         </>
       ) : null}
     </div>

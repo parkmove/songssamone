@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "./FormPage.css";
 
 function onlyDigits(s: string) {
   return s.replace(/[^\d]/g, "");
@@ -22,15 +23,9 @@ export default function FormPage() {
   const r2 = useRef<HTMLInputElement | null>(null);
   const r3 = useRef<HTMLInputElement | null>(null);
 
-  const containerStyle = useMemo(
-    () => ({
-      maxWidth: 520,
-      margin: "0 auto",
-      padding: 24,
-      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-    }),
-    []
-  );
+  // 기존 코드 구조를 최대한 유지합니다.
+  // (단, 스타일 객체는 더 이상 의미가 없어서 빈 객체로 대체)
+  const containerStyle = useMemo(() => ({} as React.CSSProperties), []);
 
   function validate(): boolean {
     const a = onlyDigits(p1);
@@ -110,10 +105,10 @@ export default function FormPage() {
   }
 
   return (
-    <main style={containerStyle}>
-      <h1 style={{ marginTop: 0 }}>전화번호 입력</h1>
+    <main className="fp" style={containerStyle}>
+      <h1 className="fp__title">전화번호 입력</h1>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+      <div className="fp__row">
         <input
           ref={r1}
           value={p1}
@@ -121,31 +116,31 @@ export default function FormPage() {
           inputMode="numeric"
           autoComplete="tel"
           placeholder="010"
-          style={{ width: 90, padding: 12, fontSize: 16, textAlign: "center" }}
+          className="fp__input fp__input--p1"
         />
-        <span>-</span>
+        <span className="fp__dash">-</span>
         <input
           ref={r2}
           value={p2}
           onChange={(e) => onChangeP2(e.target.value)}
           inputMode="numeric"
           placeholder="1234"
-          style={{ width: 110, padding: 12, fontSize: 16, textAlign: "center" }}
+          className="fp__input fp__input--p2"
         />
-        <span>-</span>
+        <span className="fp__dash">-</span>
         <input
           ref={r3}
           value={p3}
           onChange={(e) => onChangeP3(e.target.value)}
           inputMode="numeric"
           placeholder="5678"
-          style={{ width: 110, padding: 12, fontSize: 16, textAlign: "center" }}
+          className="fp__input fp__input--p3"
         />
       </div>
 
-      {error && <p style={{ color: "crimson", marginTop: 10 }}>{error}</p>}
+      {error && <p className="fp__error">{error}</p>}
 
-      <button onClick={onSubmit} style={{ width: "100%", padding: 12, fontSize: 16, marginTop: 16 }}>
+      <button onClick={onSubmit} className="fp__submit">
         제출
       </button>
     </main>
